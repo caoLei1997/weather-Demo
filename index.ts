@@ -4,7 +4,7 @@ const { program } = require('commander');
 
 program
   .version('0.1.0')
-  .option('-c, --city [name]', 'Add city name')
+  .option('-c, --city [name,extensions]', 'Add city name')
 program.parse(process.argv);
 
 if (process.argv.slice(2).length === 0) {
@@ -29,6 +29,18 @@ interface livesTypes {
   humidity: string,
   reporttime: string
 }
+interface forecastsTypes {
+  date: string,
+  week: string,
+  dayweather: string,
+  nightweather: string,
+  daytemp: string,
+  nighttemp: string,
+  daywind: string,
+  nightwind: string,
+  daypower: string,
+  nightpower: string,
+}
 const URL = "https://restapi.amap.com/v3/weather/weatherInfo";
 const USER_KEY = "09795c47eefea2940fef4c70f0d43ec7";
 const log = console.log;
@@ -46,16 +58,41 @@ const log = console.log;
 //   })
 
 // ** async await write
-const getWeather = async (city: string) => {
+const getWeather = async (reqData: string) => {
   try {
-    const url = `${URL}?city=${encodeURI(city)}&key=${USER_KEY}`;
+    const params: string[] = reqData.split(',');
+    const [city, extensions] = params;
+    let url
+    if (extensions) {
+      url = `${URL}?city=${encodeURI(city)}&key=${USER_KEY}&extensions=all`;
+    } else {
+      url = `${URL}?city=${encodeURI(city)}&key=${USER_KEY}`;
+    }
     const response = await axios.get(url);
-    const lives = response.data.lives[0];
-    log(colors.yellow(lives.reporttime));
-    log(colors.white(`${lives.province} ${lives.city}`));
-    log(colors.yellow(`${lives.weather} ${lives.temperature} 度`));
+    if (extensions) {
+      logForecasts(response);
+    } else {
+      logLives(response);
+    }
   } catch (error) {
     log(colors.red('天气服务异常'));
   }
 }
-getWeather(program.city)
+getWeather(program.city);
+
+const logLives = (response: any) => {
+  const lives = response.data.lives[0];
+  log(colors.yellow(lives.reporttime));
+  log(colors.white(`${lives.province} ${lives.city}`));
+  log(colors.green(`${lives.weather} ${lives.temperature} 度`));
+}
+const logForecasts = (response: any) => {
+  const forecasts = response.data.forecasts[0];
+  const { casts } = forecasts;
+  log(colors.red(`${forecasts.province} ${forecasts.city}`))
+  casts.forEach((item: forecastsTypes) => {
+      log(colors.yellow(`${item.date} 周${item.week}`))
+      log(colors.white(`白天：${item.dayweather} 夜晚：${item.nightweather}`))
+      log(colors.green(`白天：${item.daytemp} 夜晚：${item.nighttemp}`))
+  })
+}
